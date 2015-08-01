@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">"History of Melbourne"</string>
+    <string name="title_activity_maps">Melbourne</string>
+    <string name="title_activity_welcome">Welcome</string>
+    <string name="welcome_button">Lets Explore Melbourne!</string>
+    <string name="action_home">Home View</string>
+    <string name="action_list">List View</string>
+    <string name="action_info">Credits</string>
+</resources>

@@ -1,5 +1,6 @@
 package au.com.arthur.maptest1;
 
+import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -78,6 +79,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         slidingLayout.setTouchEnabled(false);
         TextView POI_Title = (TextView)findViewById(R.id.POITitleTxt);
         POI_Title.setOnClickListener(new TextView.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onPOITitleClick();
+            }
+        });
+        ImageView POI_TitleImg = (ImageView)findViewById(R.id.POITitleImg);
+        POI_TitleImg.setOnClickListener(new ImageView.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onPOITitleClick();
@@ -343,7 +351,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (slidingLayout.getPanelState().equals(SlidingUpPanelLayout.PanelState.COLLAPSED))
         {//Show POI panel
 
-            //populate the panel with the relevant HTML
+            //Populate the panel with the relevant HTML
             //Get HTML test from file
             String htmlFName = currentMarker.getSnippet();
             int resID = getResources().getIdentifier(htmlFName, "raw", getPackageName());
@@ -359,13 +367,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             //hide actionbar
             getActionBar().hide();
 
-            //slide up panel
-            slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.EXPANDED);
-
             //Show arrow as hint
             ImageView imageView = (ImageView)findViewById(R.id.POITitleImg);
             resID = getResources().getIdentifier("ic_chevron_left_white_24dp", "drawable", getPackageName());
             imageView.setImageResource(resID);
+
+            // Execute some code after load has completed, rough but it works
+            Handler handler = new Handler();
+            handler.postDelayed(new Runnable() {
+                public void run() {
+                    //slide up panel
+                    slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.EXPANDED);
+                }
+            }, 100);
 
             //show guide message for POI slider
             if (toastGuide_clickMarker < TOASTGUIDE_SHOWCOUNT)

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<POICatalogue>
+  <POI>
+    <DisplayName>Melbourne Town Hall</DisplayName>
+    <Icon>townhall_icon</Icon>
+    <Html>townhall_html</Html>
+    <Coord lon="144.9667106" lat="-37.8150496"/>
+  </POI>
+  <POI>
+    <DisplayName>Royal Exhibition Building</DisplayName>
+    <Icon>rylexbldg_icon</Icon>
+    <Html>rylexbldg_html</Html>
+    <Coord lon="144.972271" lat="-37.804843"/>
+  </POI>
+  <POI>
+    <DisplayName>Queen Victoria Market</DisplayName>
+    <Icon>vicmarket_icon</Icon>
+    <Html>vicmarket_html</Html>
+    <Coord lon="144.956950" lat="-37.809181"/>
+  </POI>
+  <POI>
+    <DisplayName>St Patricks Cathedral</DisplayName>
+    <Icon>stpats_icon</Icon>
+    <Html>stpats_html</Html>
+    <Coord lon="144.976368" lat="-37.810374"/>
+  </POI>
+  <POI>
+    <DisplayName>Flinders St Station</DisplayName>
+    <Icon>flindersst_icon</Icon>
+    <Html>flindersst_html</Html>
+    <Coord lon="144.9676667" lat="-37.818235"/>
+  </POI>
+</POICatalogue>

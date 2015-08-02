@@ -6,6 +6,9 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.Toast;
 import android.widget.TextView;
 import android.graphics.drawable.Drawable;
@@ -16,6 +19,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -29,6 +36,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
 
     //class wide variables
@@ -38,6 +46,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int toastGuide_clickMarker = 0;
     private int toastGuide_POIFirstView = 0;
     final int TOASTGUIDE_SHOWCOUNT = 2;
+    Marker currentMarker;
+
+    private static final String POI_LISTFILE = "poi_rootlist";
 
 
     ////////////////////////////////////////
@@ -46,7 +57,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //
     ////////////////////////////////////////
 
-    //oncreate for activity
+    //Activity OnCreate
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,62 +69,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        //slidepanel realted
+        //load and display POIs
+        prepare_POI();
+
+        //slidepanel related
         slidingLayout = (SlidingUpPanelLayout) findViewById(R.id.sliding_layout);
         slidingLayout.setPanelSlideListener(onSlideListener());
         slidingLayout.setTouchEnabled(false);
-
-        //For text content - move to relevant location soon
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        String htmlText = readRawTextFile(getApplicationContext(), R.raw.poi_vicmarket);
-        TextView htmlTextView = (TextView)findViewById(R.id.main_text);
-        htmlTextView.setText(Html.fromHtml(htmlText, new ImageGetter(), null));
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-        //For POI title click scroll
-        TextView POI_Title = (TextView)findViewById(R.id.poi_title);
+        TextView POI_Title = (TextView)findViewById(R.id.POITitleTxt);
         POI_Title.setOnClickListener(new TextView.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-                if (slidingLayout.getPanelState().equals(SlidingUpPanelLayout.PanelState.COLLAPSED))
-                    {//Show POI panel
-
-                        //hide actionbar
-                        getActionBar().hide();
-
-                        //slide up panel
-                        slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.EXPANDED);
-
-                        //show guide message for POI slider
-                        if (toastGuide_clickMarker < TOASTGUIDE_SHOWCOUNT)
-                        {
-                            Context context = getApplicationContext();
-                            CharSequence text = "Touch title to return to map";
-                            int duration = Toast.LENGTH_SHORT;;
-                            if (toastGuide_clickMarker == 0)
-                                {duration = Toast.LENGTH_LONG;}
-                            else if (toastGuide_clickMarker == 1)
-                                {duration = Toast.LENGTH_SHORT;}
-                            Toast toast = Toast.makeText(context, text, duration);
-                            toast.setGravity(Gravity.TOP|Gravity.CENTER, 0, 200);
-                            toast.show();
-
-                            toastGuide_clickMarker++;
-                        }
-                    }
-                else if (slidingLayout.getPanelState().equals(SlidingUpPanelLayout.PanelState.EXPANDED))
-                    {//close POI panel
-
-                        //slide down panel
-                        slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.COLLAPSED);
-
-                        //show actionbar
-                        getActionBar().show();
-                    }
+                onPOITitleClick();
             }
         });
-   }
+    }
 
     //On app resume
     @Override
@@ -161,6 +131,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Toast.makeText(getApplicationContext(), "TBC: Credits", Toast.LENGTH_LONG).show();
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+            if (hasFocus)
+            {
+                View decorView = getWindow().getDecorView();
+                decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+            }
+        }
+    }
+
 
     ////////////////////////////////////////
     //
@@ -173,7 +158,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap map) {
 
         //Load and show POI markers
-        mapAddMarkers(map);
+        prepare_POI();
+
         //Set camera to home location
         LatLng central = new LatLng(-37.810366, 144.962886);
         map.moveCamera(CameraUpdateFactory.newLatLngZoom(central, 14));
@@ -208,27 +194,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         toast.show();
     }
 
-    //maps - load and show POI markers
-    private void mapAddMarkers(GoogleMap map)
-    {
-        // Create marker locations - load from file
-        LatLng townhall = new LatLng(-37.8150496,144.9667106);
-        LatLng VicMarket = new LatLng(-37.809181, 144.956950);
-        LatLng RylExBldg = new LatLng(-37.804843, 144.972271);
-        LatLng FlindersSt = new LatLng(-37.818235,144.9676667);
-        LatLng StPats = new LatLng(-37.810374, 144.976368);
-        LatLng central = new LatLng(-37.810366, 144.962886);
-        LatLng Parliament = new LatLng(-37.810794, 144.973687);
-        LatLng SouthBank = new LatLng(-37.8185494,144.9654183);
-
-        //Add Markers to Map - load from file
-        map.addMarker(new MarkerOptions().position(townhall).title("Melbourne Town Hall").icon(BitmapDescriptorFactory.fromResource(R.drawable.townhall)));
-        map.addMarker(new MarkerOptions().position(RylExBldg).title("Royal Exhibition Building").icon(BitmapDescriptorFactory.fromResource(R.drawable.exhibition)));
-        map.addMarker(new MarkerOptions().position(VicMarket).title("Queen Victoria Market").icon(BitmapDescriptorFactory.fromResource(R.drawable.queenvic)));
-        map.addMarker(new MarkerOptions().position(StPats).title("St Patricks Cathedral").icon(BitmapDescriptorFactory.fromResource(R.drawable.stpauls)));
-        map.addMarker(new MarkerOptions().position(FlindersSt).title("Flinders St Station").icon(BitmapDescriptorFactory.fromResource(R.drawable.flinders)));
-    }
-
     //maps - navigate to central map location over Melbourne CBD
     public void navigateHome()
     {
@@ -251,8 +216,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public boolean onMarkerClick(final Marker marker)
     {
         //Set POI Title Bar from Marker
-        TextView POItextView = (TextView)findViewById(R.id.poi_title);
+        TextView POItextView = (TextView)findViewById(R.id.POITitleTxt);
         POItextView.setText(marker.getTitle());
+
+        //Set currently selected marker
+        currentMarker = marker;
 
         //Centre Market in Map
         LatLng latLng = new LatLng(marker.getPosition().latitude, marker.getPosition().longitude);
@@ -269,7 +237,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         {
             Context context = getApplicationContext();
             CharSequence text = "Click below to view Point of Interest";
-            int duration = Toast.LENGTH_SHORT;;
+            int duration = Toast.LENGTH_SHORT;
             if (toastGuide_POIFirstView == 0)
             {duration = Toast.LENGTH_LONG;}
             else if (toastGuide_POIFirstView == 1)
@@ -290,6 +258,148 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //  POI content management code
     //
     ////////////////////////////////////////
+
+    private void prepare_POI()
+    {
+        try {
+            InputStream inputstream;
+            XmlPullParserFactory xmlFactoryObject;
+            int resID = getResources().getIdentifier(POI_LISTFILE, "raw", this.getPackageName());
+            inputstream = this.getResources().openRawResource(resID);
+            xmlFactoryObject = XmlPullParserFactory.newInstance();
+            XmlPullParser myparser = xmlFactoryObject.newPullParser();
+            myparser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
+            myparser.setInput(inputstream, null);
+
+            try
+            {
+                String text = null;
+                String val_DisplayName = "";
+                String val_Icon = "";
+                String val_Html = "";
+                double val_Coord_Lon = 0;
+                double val_Coord_Lat = 0;
+                boolean XMLelementMarker = false;
+                String name;
+                int event = myparser.getEventType();
+                while (event != XmlPullParser.END_DOCUMENT)  //while not EOF
+                {
+                    name = myparser.getName();
+                    switch (event)
+                    {
+                        case XmlPullParser.START_TAG:
+                            break;
+                        case XmlPullParser.TEXT:
+                            text = myparser.getText();
+                            break;
+                        case XmlPullParser.END_TAG:
+                            if (name.equals("DisplayName")) {
+                                val_DisplayName = text;
+                            }
+                            else if (name.equals("Icon")) {
+                                val_Icon = text;
+                            }
+                            else if (name.equals("Html")) {
+                                val_Html = text;
+                            }
+                            else if(name.equals("Coord")) {
+                                val_Coord_Lon = Double.parseDouble(myparser.getAttributeValue(null, "lon"));
+                                val_Coord_Lat = Double.parseDouble(myparser.getAttributeValue(null, "lat"));
+                            }
+                            break;
+                    }
+
+                    if (name != null) {
+                        if (name.equals("POI")) {
+                            if (!XMLelementMarker) {
+                                XMLelementMarker = true;
+                            } else {
+                                XMLelementMarker = false;
+                                //Add marker to map
+                                if (!"".equals(val_DisplayName)) {
+                                    LatLng loc = new LatLng(val_Coord_Lat, val_Coord_Lon);
+                                    resID = getResources().getIdentifier(val_Icon, "raw", getPackageName());
+                                    mMap.addMarker(new MarkerOptions().position(loc).title(val_DisplayName).icon(BitmapDescriptorFactory.fromResource(resID)).snippet(val_Html));
+                                }
+                            }
+                        }
+                    }
+
+                    event = myparser.next();
+                }
+
+            }
+            catch (Exception e) {
+                    e.printStackTrace();
+            }
+        }
+        catch (XmlPullParserException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void onPOITitleClick()
+    {
+        if (slidingLayout.getPanelState().equals(SlidingUpPanelLayout.PanelState.COLLAPSED))
+        {//Show POI panel
+
+            //populate the panel with the relevant HTML
+            //Get HTML test from file
+            String htmlFName = currentMarker.getSnippet();
+            int resID = getResources().getIdentifier(htmlFName, "raw", getPackageName());
+            String htmlText = readRawTextFile(getApplicationContext(), resID);
+            //Load HTML into TextView
+            TextView htmlTextView = (TextView)findViewById(R.id.main_text);
+            htmlTextView.setText(Html.fromHtml(htmlText, new ImageGetter(), null));
+
+            //Scroll view to top
+            ScrollView scrollView = (ScrollView)findViewById(R.id.main_scroll);
+            scrollView.smoothScrollTo(0, 0);
+
+            //hide actionbar
+            getActionBar().hide();
+
+            //slide up panel
+            slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.EXPANDED);
+
+            //Show arrow as hint
+            ImageView imageView = (ImageView)findViewById(R.id.POITitleImg);
+            resID = getResources().getIdentifier("ic_chevron_left_white_24dp", "drawable", getPackageName());
+            imageView.setImageResource(resID);
+
+            //show guide message for POI slider
+            if (toastGuide_clickMarker < TOASTGUIDE_SHOWCOUNT)
+            {
+                Context context = getApplicationContext();
+                CharSequence text = "Touch title to return to map";
+                int duration = Toast.LENGTH_SHORT;
+                if (toastGuide_clickMarker == 0)
+                {duration = Toast.LENGTH_LONG;}
+                else if (toastGuide_clickMarker == 1)
+                {duration = Toast.LENGTH_SHORT;}
+                Toast toast = Toast.makeText(context, text, duration);
+                toast.setGravity(Gravity.TOP|Gravity.CENTER, 0, 200);
+                toast.show();
+
+                toastGuide_clickMarker++;
+            }
+        }
+        else if (slidingLayout.getPanelState().equals(SlidingUpPanelLayout.PanelState.EXPANDED))
+        {//close POI panel
+
+            //slide down panel
+            slidingLayout.setPanelState(SlidingUpPanelLayout.PanelState.COLLAPSED);
+
+            //show actionbar
+            getActionBar().show();
+
+            //Show chevron as hint
+            ImageView imageView = (ImageView)findViewById(R.id.POITitleImg);
+            int resID = getResources().getIdentifier("ic_expand_less_white_24dp", "drawable", getPackageName());
+            imageView.setImageResource(resID);
+
+        }
+    }
 
     //Load HTML file for POI
     public static String readRawTextFile(Context ctx, int resId)
@@ -315,19 +425,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //Find HTML image by name and return a drawable object - inserts images into POI display
     private class ImageGetter implements Html.ImageGetter {
 
-        public Drawable getDrawable(String source) {
-            int id;
-            if (source.equals("market1.jpg")) {
-                id = R.drawable.market1;
-            } else if (source.equals("market2.jpg")) {
-                id = R.drawable.market2;
-            } else if (source.equals("market3.jpg")) {
-                id = R.drawable.market3;
-            } else {
-                return null;
-            }
+        public Drawable getDrawable(String source)
+        {
+            String imageName = source.substring(0, source.indexOf('.'));
+            int resID = getResources().getIdentifier(imageName, "raw", getPackageName());
 
-            Drawable d = getResources().getDrawable(id);
+            Drawable d = getResources().getDrawable(resID);
             d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
             return d;
         }

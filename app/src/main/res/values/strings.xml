@@ -1,9 +1,11 @@
 <resources>
     <string name="app_name">"History of Melbourne"</string>
-    <string name="title_activity_maps">Melbourne</string>
+    <string name="title_activity_maps">Map</string>
     <string name="title_activity_welcome">Welcome</string>
     <string name="welcome_button">Touch to Explore</string>
     <string name="action_home">Home View</string>
     <string name="action_list">List View</string>
     <string name="action_info">Credits</string>
+    <string name="action_test1">Navigate</string>
+    <string name="action_myloc">My Location</string>
 </resources>

@@ -1,8 +1,12 @@
 package au.com.arthur.maptest1;
 
+import android.content.IntentSender;
+import android.location.Location;
+import android.net.Uri;
 import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Menu;
@@ -15,6 +19,7 @@ import android.widget.TextView;
 import android.graphics.drawable.Drawable;
 import android.text.Html;
 import android.content.Context;
+import android.content.Intent;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,6 +30,11 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -38,10 +48,22 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
+public class MapsActivity extends FragmentActivity
+        implements  OnMapReadyCallback,
+                    GoogleMap.OnMarkerClickListener,
+                    GoogleApiClient.ConnectionCallbacks,
+                    GoogleApiClient.OnConnectionFailedListener,
+                    LocationListener {
+
 
     //class wide variables
     private GoogleMap mMap;
+    private GoogleApiClient mGoogleApiClient;
+    public static final String TAG = MapsActivity.class.getSimpleName();
+    private Location myLocation;
+    private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
+    private LocationRequest mLocationRequest;
+
     private SlidingUpPanelLayout slidingLayout;
     private int POIViewed = 0;
     private int toastGuide_clickMarker = 0;
@@ -69,6 +91,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //maps related
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        buildGoogleApiClient();
+        // Create the LocationRequest object
+        mLocationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setInterval(10 * 1000)        // 10 seconds, in milliseconds
+                .setFastestInterval(1 * 1000); // 1 second, in milliseconds
 
         //load and display POIs
         prepare_POI();
@@ -98,6 +126,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onResume() {
         super.onResume();
         setUpMapIfNeeded();
+        mGoogleApiClient.connect();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mGoogleApiClient.isConnected()) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+            mGoogleApiClient.disconnect();
+        }
     }
 
     //build actionbar items
@@ -116,15 +154,38 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             case R.id.action_home:
                 navigateHome();
                 return true;
+            case R.id.action_myloc:
+                navigateCurrentLocation();
+                return true;
             case R.id.action_list:
                 showListOfPOI();
                 return true;
             case R.id.action_info:
                 showInfo();
                 return true;
+            case R.id.action_test_func_1:
+                TestFunc1();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    //actionbar Test Func 1
+    public void TestFunc1()
+    {
+        LatLng DestLoc = new LatLng(-37.810374, 144.976368);
+
+        final Intent intent = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("http://maps.google.com/maps?"+
+                        "saddr="
+                        + myLocation.getLatitude() + "," + myLocation.getLongitude() +
+                        "&daddr="
+                        + DestLoc.latitude + "," + DestLoc.longitude));
+        intent.setClassName("com.google.android.apps.maps",
+                "com.google.android.maps.MapsActivity");
+        startActivity(intent);
+
     }
 
     //actionbar activity
@@ -223,6 +284,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public boolean onMarkerClick(final Marker marker)
     {
+        //if marker is the user location marker, do not perform usual actions
+        if (marker.getTitle().equals("You are here!")) {
+            marker.showInfoWindow();
+            //Do nothing...
+            return(true);
+        }
+
         //Set POI Title Bar from Marker
         TextView POItextView = (TextView)findViewById(R.id.POITitleTxt);
         POItextView.setText(marker.getTitle());
@@ -259,6 +327,71 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         return true;
     }
+
+    protected synchronized void buildGoogleApiClient() {
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
+    }
+
+    @Override
+    public void onConnected(Bundle connectionHint) {
+        myLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        if (myLocation == null) {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);        }
+        else {
+            handleNewLocation(myLocation);
+        }
+        Log.i(TAG, "Location services connected.");
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        Log.i(TAG, "Location services suspended. Please reconnect.");
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        handleNewLocation(location);
+    }
+
+    private void handleNewLocation(Location location) {
+        Log.d(TAG, location.toString());
+
+        myLocation = location;
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        if (connectionResult.hasResolution()) {
+            try {
+                // Start an Activity that tries to resolve the error
+                connectionResult.startResolutionForResult(this, CONNECTION_FAILURE_RESOLUTION_REQUEST);
+            } catch (IntentSender.SendIntentException e) {
+                e.printStackTrace();
+            }
+        } else {
+            Log.i(TAG, "Location services connection failed with code " + connectionResult.getErrorCode());
+        }
+    }
+
+    public void navigateCurrentLocation()
+    {
+        Marker marker;
+        double currentLatitude = myLocation.getLatitude();
+        double currentLongitude = myLocation.getLongitude();
+        LatLng latLng = new LatLng(currentLatitude, currentLongitude);
+
+        MarkerOptions options = new MarkerOptions()
+                .position(latLng)
+                .title("You are here!");
+        marker = mMap.addMarker(options);
+        mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+        marker.showInfoWindow();
+    }
+
 
 
     ////////////////////////////////////////

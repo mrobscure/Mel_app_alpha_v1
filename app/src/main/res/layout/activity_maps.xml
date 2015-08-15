@@ -12,7 +12,7 @@
         android:gravity="bottom"
         sothree:umanoDragView="@+id/dragView"
         sothree:umanoOverlay="true"
-        sothree:umanoPanelHeight="65dp"
+        sothree:umanoPanelHeight="150dp"
         sothree:umanoParalaxOffset="100dp"
         sothree:umanoShadowHeight="4dp"
         sothree:umanoInitialState="hidden"
@@ -56,7 +56,7 @@
                 <ImageView
                     android:id="@+id/POITitleImg"
                     android:layout_width="40dp"
-                    android:layout_height="65dp"
+                    android:layout_height="150dp"
                     android:layout_alignParentLeft="true"
                     android:layout_alignParentTop="true"
                     android:src="@drawable/ic_expand_less_white_24dp"
@@ -67,7 +67,7 @@
                 <TextView
                     android:id="@+id/POITitleTxt"
                     android:layout_width="match_parent"
-                    android:layout_height="65dp"
+                    android:layout_height="150dp"
                     android:layout_alignBottom="@id/POITitleImg"
                     android:layout_alignTop="@id/POITitleImg"
                     android:layout_toRightOf="@id/POITitleImg"
